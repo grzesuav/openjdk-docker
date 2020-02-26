@@ -29,6 +29,9 @@ version="9"
 
 # shellcheck source=common_functions.sh
 source ./common_functions.sh
+# shellcheck source=snyk.sh
+source ./snyk.sh
+
 # shellcheck source=dockerfile_functions.sh
 source ./dockerfile_functions.sh
 
@@ -206,7 +209,7 @@ function check_build_needed() {
 	# build not needed
 	echo "INFO: Docker image for ${adopt_image_tag} exists and is latest. Docker build NOT needed"
 }
- 
+
 # Build the Docker image with the given repo, build, build type and tags.
 function build_image() {
 	repo=$1; shift;
@@ -232,7 +235,7 @@ function build_image() {
 
 	echo "docker push ${repo}:${tag}" >> "${push_cmdfile}"
 	echo "#####################################################"
-	echo "INFO: docker build --no-cache ${tags} -f ${dockerfile} ."
+	echo "INFO: docker build --no-cache ${expanded_tags} -f ${dockerfile} ."
 	echo "#####################################################"
 	if [ ! -z "$TARGET_ARCHITECTURE" ]; then
 		echo "using a buildx environment"
@@ -276,6 +279,16 @@ function build_image() {
 				exit 1
 			fi
 		else
+		  if ((SNYK_ENABLED)); then
+	    echo "#####################################################"
+	    echo "        Scanning with snyk for vulnerabilities       "
+	    echo "#####################################################"
+	    	for i in "${tags[@]}"
+        do
+          printf "...scanning %s" "${tags[$i]}"
+	        snyk test --docker "${tags[$i]}" --file=="${dockerfile}"
+        done
+	    fi
 			echo "| ${image_name:0:80}${auto_space_line:0:$((76 - ${#image_name}))} | success  |" >> ${summary_table_file}
 			echo "+------------------------------------------------------------------------------+----------+" >> ${summary_table_file}
 		fi
